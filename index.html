@@ -1,94 +1,496 @@
 <!doctype html>
 <html lang="el">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Πρόσκληση</title>
-  <style>
-    body{
-      margin:0;
-      min-height:100vh;
-      display:grid;
-      place-items:center;
-      background:#ffe6f0;
-      font-family: system-ui, Arial, sans-serif;
-    }
-    .wrap{
-      width:min(520px, 92vw);
-      text-align:center;
-    }
-    .hint{ margin:0 0 14px; color:#444; }
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Πρόσκληση 💌</title>
 
-    .envelope-stage{
-      position:relative;
-      width:100%;
-      aspect-ratio: 4 / 3;
-      display:grid;
-      place-items:center;
-      cursor:pointer;
-      user-select:none;
-    }
+<style>
+  :root{
+    --bg:#ffe6f0;
 
-    /* back layer */
-    .env-back{
-      position:absolute;
-      inset:0;
-      width:100%;
-      height:100%;
-      object-fit:contain;
-      z-index:1;
-      pointer-events:none;
-    }
+    --pink1:#ffd6e2;
+    --pink2:#f6a9c1;
+    --pinkBottom:#f9bfd2;
 
-    /* invite card */
-    .invite{
-      position:absolute;
-      width:72%;
-      max-width:420px;
-      height:auto;
-      bottom:18%;
-      z-index:2;
-      transform: translateY(35%) scale(0.98);
-      transition: transform 900ms cubic-bezier(.2,.9,.2,1);
-      border-radius:14px;
-      box-shadow:0 12px 28px rgba(0,0,0,.18);
-    }
+    --seal1:#ff6fa6;
+    --seal2:#ff3f86;
 
-    /* front layer (covers the lower part of the card) */
-    .env-front{
-      position:absolute;
-      inset:0;
-      width:100%;
-      height:100%;
-      object-fit:contain;
-      z-index:3;
-      pointer-events:none;
-    }
+    /* ----------------- TUNING ----------------- */
+    --openLine: 58%;
+    --inviteW: 82%;
+    --inviteUp: 35%;
+    --showDelay: 420ms;
 
-    /* open state */
-    .open .invite{
-      transform: translateY(-40%) scale(1);
-    }
+    /* JS will override these for the gif start position */
+    --gifX: 50%;
+    --gifY: 50%;
+  }
 
-    .small{ margin:12px 0 0; font-size:13px; color:#666; }
-  </style>
+  *{box-sizing:border-box}
+
+  body{
+    margin:0;
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:flex-start;
+    background:var(--bg);
+    padding-top:350px;
+  }
+
+  /* Hint: ψηλά στο κέντρο, εξαφανίζεται όταν ανοίγει */
+  .hint{
+    position: fixed;
+    top: 200px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size:18px;
+    color:#ff5f9a;
+    letter-spacing:0.5px;
+    opacity:0.9;
+    animation: pulse 1.8s infinite ease-in-out;
+    transition: opacity 0.3s ease;
+    pointer-events:none;
+  }
+
+  @keyframes pulse{
+    0%{opacity:0.6}
+    50%{opacity:1}
+    100%{opacity:0.6}
+  }
+
+  .envelope{
+    width:min(400px, 90vw);
+    aspect-ratio: 16/10;
+    position:relative;
+    perspective: 900px;
+    cursor:pointer;
+    user-select:none;
+  }
+
+  /* ===== LAYERS (locked) ===== */
+  .back{ z-index:1; }
+  .tri-left,.tri-right,.tri-bottom{ z-index:3; }
+  .invite-slot{ z-index:20; }
+  .flap-shadow{ z-index:40; }
+  .flap{ z-index:50; }
+  .seal{ z-index:60; }
+
+  /* back */
+  .back{
+    position:absolute;
+    inset:0;
+    border-radius:18px;
+    background: var(--pink1);
+    overflow:hidden;
+  }
+
+  /* triangles */
+  .tri-left,.tri-right,.tri-bottom{
+    position:absolute;
+    inset:0;
+    border-radius:18px;
+    pointer-events:none;
+  }
+  .tri-left{
+    background: var(--pink2);
+    clip-path: polygon(0 0, 52% 50%, 0 100%);
+  }
+  .tri-right{
+    background: var(--pink2);
+    clip-path: polygon(100% 0, 48% 50%, 100% 100%);
+  }
+  .tri-bottom{
+    background: var(--pinkBottom);
+    clip-path: polygon(0 0, 50% 62%, 100% 0, 100% 100%, 0 100%);
+  }
+
+  /* ===== INVITE ===== */
+  .invite-slot{
+    position:absolute;
+    left:0; right:0;
+    top:auto;
+    bottom: calc(100% - var(--openLine));
+    height: 200%;
+    overflow:hidden;
+    border-radius:18px 18px 0 0;
+    pointer-events:none;
+  }
+
+  .invite-wrap{
+    position:absolute;
+    left:50%;
+    bottom:0;
+    width: var(--inviteW);
+    transform: translateX(-50%) translateY(92%);
+    opacity:0;
+    transition:
+      transform 850ms cubic-bezier(.2,.9,.2,1),
+      opacity 180ms ease;
+  }
+
+  .invite-card{
+    width:100%;
+    aspect-ratio: var(--imgRatio, 3/4);
+    border-radius:14px;
+    overflow:hidden;
+    background:#fff;
+    box-shadow: 0 14px 26px rgba(0,0,0,.22);
+    position: relative;
+  }
+
+  .invite-card img#inviteImg{
+    width:100%;
+    height:100%;
+    display:block;
+    object-fit: contain;
+    background:#fff;
+  }
+
+  /* ===== Buttons ===== */
+  .invite-actions{
+    position:absolute;
+    left:50%;
+    bottom:40px;              /* πάνω από τη λευκή γραμμή */
+    transform:translateX(-50%);
+    width:100%;
+    height:100px;             /* χώρος για να τρέχει το ΟΧΙ */
+    z-index:5;
+    opacity:0;
+    pointer-events:none;
+    transition: opacity .25s ease;
+  }
+
+  .show .invite-actions{
+    opacity:1;
+    pointer-events:auto;
+  }
+
+  .btn{
+    border:0;
+    padding:7px 12px;
+    border-radius:999px;
+    font-size:13px;
+    cursor:pointer;
+    box-shadow: 0 8px 16px rgba(0,0,0,.15);
+  }
+
+  /* (κρατάω τις δικές σου θέσεις) */
+  .btn-yes{
+    background:#ff5f9a;
+    color:white;
+    position:absolute;
+    left:40%;
+    top:83%;
+    transform:translate(-60%,-50%);
+  }
+
+  .btn-no{
+    background:#fff;
+    color:#ff5f9a;
+    border:1px solid rgba(255,95,154,.35);
+    position:absolute;
+    left:40%;
+    top:95%;
+    transform:translate(60%,-50%);
+  }
+
+  /* ===== YES MSG container: πλέον ΧΩΡΙΣ ροζ πλαίσιο ===== */
+  .yes-msg{
+    position:absolute;
+    left:0;
+    top:0;
+    width:100%;
+    height:100%;
+    z-index:6;
+
+    background:transparent;
+    border:0;
+    padding:0;
+    color:transparent;
+
+    opacity:1;
+    pointer-events:none;
+  }
+
+  /* ===== GIF: ξεκινά από το ΝΑΙ, καταλήγει κέντρο ===== */
+  .yes-gif{
+    position:absolute;
+
+    width:240px;         /* κάν' το 260-300 αν το θες πιο μεγάλο */
+    max-width:85%;
+
+    border-radius:14px;
+    box-shadow: 0 14px 26px rgba(0,0,0,.22);
+
+    left: var(--gifX, 50%);
+    top:  var(--gifY, 50%);
+    transform: translate(-50%, -50%) scale(.25);
+    opacity: 0;
+
+    transition:
+      left .55s cubic-bezier(.2,.9,.2,1),
+      top  .55s cubic-bezier(.2,.9,.2,1),
+      transform .55s cubic-bezier(.2,.9,.2,1),
+      opacity .2s ease;
+  }
+
+  .yes-gif.show{
+    left:50%;
+    top:50%;
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+
+  /* flap */
+  .flap-shadow{
+    position:absolute;
+    left:0; right:0;
+    top:0;
+    height:58%;
+    background: var(--pink2);
+    clip-path: polygon(0 0, 100% 0, 50% 78%);
+    opacity:.10;
+    pointer-events:none;
+    transition: opacity 220ms ease;
+  }
+
+  .flap{
+    position:absolute;
+    left:0; right:0;
+    top:0;
+    height:58%;
+    background: var(--pink1);
+    clip-path: polygon(0 0, 100% 0, 50% 78%);
+    border-radius:18px 18px 0 0;
+    pointer-events:none;
+    transform-origin: 50% 0%;
+    transform: rotateX(0deg);
+    transition: transform 700ms cubic-bezier(.2,.9,.2,1);
+  }
+
+  /* seal */
+  .seal{
+    position:absolute;
+    left:50%;
+    top:42%;
+    transform: translateX(-50%);
+    width:54px;
+    height:54px;
+    border-radius:50%;
+    background: linear-gradient(180deg, var(--seal1), var(--seal2));
+    display:grid;
+    place-items:center;
+    color:white;
+    font-size:22px;
+    box-shadow: 0 6px 12px rgba(0,0,0,.18);
+    pointer-events:none;
+    transition: opacity 220ms ease;
+  }
+
+  /* ===== STATES ===== */
+  .open .flap{ transform: rotateX(180deg); }
+  .open .seal{ opacity:0; }
+
+  .show .flap,
+  .show .flap-shadow{
+    z-index: 10;
+  }
+  .show .flap-shadow{ opacity:0; }
+
+  .show .invite-wrap{
+    opacity:1;
+    transform: translateX(-50%) translateY(calc(-1 * var(--inviteUp)));
+  }
+</style>
 </head>
+
 <body>
-  <div class="wrap">
-    <p class="hint">Πάτα τον φάκελο για να βγει η πρόσκληση 💌</p>
 
-    <div id="stage" class="envelope-stage" aria-label="Άνοιγμα φακέλου">
-      <img class="env-back" src="envelope-back.png" alt="">
-      <img class="invite" src="invite.png" alt="Πρόσκληση">
-      <img class="env-front" src="envelope-front.png" alt="">
+<p id="hint" class="hint">Άνοιξε τον φάκελο 💌</p>
+
+<div id="env" class="envelope">
+  <div class="back"></div>
+
+  <div class="tri-left"></div>
+  <div class="tri-right"></div>
+  <div class="tri-bottom"></div>
+
+  <div class="invite-slot">
+    <div class="invite-wrap" id="inviteWrap">
+      <div class="invite-card">
+        <img id="inviteImg" src="invite.png" alt="Πρόσκληση">
+
+        <div id="yesMsg" class="yes-msg">
+          <img id="yesGif" src="yay.gif" alt="Yay!" class="yes-gif">
+        </div>
+
+        <div class="invite-actions" id="actions">
+          <button id="btnYes" class="btn btn-yes" type="button">ΝΑΙ</button>
+          <button id="btnNo" class="btn btn-no" type="button">ΟΧΙ</button>
+        </div>
+      </div>
     </div>
-
-    <p class="small">(Ξαναπάτα για κλείσιμο)</p>
   </div>
 
-  <script>
-    const stage = document.getElementById('stage');
-    stage.addEventListener('click', () => stage.classList.toggle('open'));
-  </script>
+  <div class="flap-shadow"></div>
+  <div class="flap"></div>
+  <div class="seal">❤</div>
+</div>
+
+<script>
+  const env = document.getElementById('env');
+  const img = document.getElementById('inviteImg');
+  const hint = document.getElementById('hint');
+
+  const btnYes = document.getElementById('btnYes');
+  const btnNo  = document.getElementById('btnNo');
+  const actions = document.getElementById('actions');
+
+  const yesGif = document.getElementById('yesGif');
+
+  // ratio από την εικόνα
+  function setRatio(){
+    const w = img.naturalWidth, h = img.naturalHeight;
+    if(!w || !h) return;
+    document.documentElement.style.setProperty('--imgRatio', `${w} / ${h}`);
+  }
+  if (img.complete) setRatio();
+  else img.addEventListener('load', setRatio);
+
+  let busy = false;
+  let opened = false;
+
+  env.addEventListener('click', () => {
+    // αν πατάς πάνω σε κουμπί, μην κλείνει/ανοίγει ο φάκελος
+    // (τα κουμπιά κάνουν stopPropagation ήδη, αλλά το κρατάμε safe)
+    if (busy) return;
+    busy = true;
+
+    if (!opened) {
+      env.classList.add('open');
+      hint.style.opacity = "0";
+
+      setTimeout(() => {
+        env.classList.add('show');
+        opened = true;
+        busy = false;
+      }, parseInt(getComputedStyle(document.documentElement).getPropertyValue('--showDelay')) || 420);
+
+    } else {
+      env.classList.remove('show');
+      yesGif.classList.remove('show');  // reset gif
+
+      setTimeout(() => {
+        env.classList.remove('open');
+        hint.style.opacity = "0.9";
+        opened = false;
+        busy = false;
+      }, 420);
+    }
+  });
+
+  // ========== "ΟΧΙ" φεύγει συνέχεια από το ποντίκι ==========
+  function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
+
+  function placeNo(x, y){
+    const area = actions.getBoundingClientRect();
+    const btn = btnNo.getBoundingClientRect();
+    const maxX = area.width - btn.width;
+    const maxY = area.height - btn.height;
+
+    btnNo.style.left = clamp(x, 0, maxX) + "px";
+    btnNo.style.top  = clamp(y, 0, maxY) + "px";
+    btnNo.style.transform = "none";
+  }
+
+  function initNo(){
+    const area = actions.getBoundingClientRect();
+    // το δικό σου "λίγο αριστερά" start
+    placeNo(area.width * 0.53, area.height * 1);
+  }
+
+  function fleeFromCursor(clientX, clientY){
+    const area = actions.getBoundingClientRect();
+    const btn = btnNo.getBoundingClientRect();
+
+    const btnCx = btn.left + btn.width/2;
+    const btnCy = btn.top  + btn.height/2;
+
+    const dx = btnCx - clientX;
+    const dy = btnCy - clientY;
+
+    const dist = Math.hypot(dx, dy) || 1;
+    const step = 120;
+
+    const ux = dx / dist;
+    const uy = dy / dist;
+
+    const curX = btn.left - area.left;
+    const curY = btn.top  - area.top;
+
+    const nx = curX + ux * step + (Math.random()*40 - 20);
+    const ny = curY + uy * step + (Math.random()*30 - 15);
+
+    placeNo(nx, ny);
+  }
+
+  const observer = new MutationObserver(() => {
+    if (env.classList.contains('show')) {
+      setTimeout(initNo, 50);
+    }
+  });
+  observer.observe(env, { attributes:true, attributeFilter:['class'] });
+
+  actions.addEventListener('mousemove', (e) => {
+    if (!env.classList.contains('show')) return;
+
+    const rect = btnNo.getBoundingClientRect();
+    const cx = rect.left + rect.width/2;
+    const cy = rect.top  + rect.height/2;
+
+    const dist = Math.hypot(e.clientX - cx, e.clientY - cy);
+
+    if (dist < 90) {
+      fleeFromCursor(e.clientX, e.clientY);
+    }
+  });
+
+  btnNo.addEventListener('mouseenter', (e) => {
+    if (!env.classList.contains('show')) return;
+    fleeFromCursor(e.clientX, e.clientY);
+  });
+
+  btnNo.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  });
+
+  // ===== ΝΑΙ -> gif πετάγεται από το κουμπί και πάει στο κέντρο =====
+  btnYes.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const card = document.querySelector('.invite-card');
+    const rCard = card.getBoundingClientRect();
+    const rBtn  = btnYes.getBoundingClientRect();
+
+    const x = (rBtn.left + rBtn.width/2) - rCard.left;
+    const y = (rBtn.top  + rBtn.height/2) - rCard.top;
+
+    // start position (px)
+    yesGif.style.setProperty('--gifX', x + 'px');
+    yesGif.style.setProperty('--gifY', y + 'px');
+
+    // reset ώστε να παίζει κάθε φορά
+    yesGif.classList.remove('show');
+    void yesGif.offsetWidth; // force reflow
+
+    // animate to center
+    yesGif.classList.add('show');
+  });
+</script>
+
 </body>
 </html>
