@@ -197,16 +197,16 @@
     transform:translate(60%,-50%);
   }
 
-  /* ✅ MOBILE FIX: κατέβασε ΚΑΙ τα δύο κουμπιά (και δώσε μεγαλύτερη arena) */
+  /* ✅ MOBILE FIX */
   @media (max-width: 480px){
-    body{ padding-top: 300px; }        /* λίγο πιο πάνω ο φάκελος, προαιρετικό */
+    body{ padding-top: 300px; }
 
     .invite-actions{
-      bottom: 18px;                    /* πιο κάτω */
-      height: 130px;                   /* πιο άνετο για touch */
+      bottom: 18px;
+      height: 130px;
     }
-    .btn-yes{ top: 75%; }              /* πιο κάτω */
-    .btn-no { top: 90%; }              /* πιο κάτω μαζί */
+    .btn-yes{ top: 75%; }
+    .btn-no { top: 90%; }
   }
 
   /* ===== YES overlay (transparent) ===== */
@@ -223,7 +223,7 @@
   /* GIF: πετάγεται από ΝΑΙ -> κέντρο */
   .yes-gif{
     position:absolute;
-    width:260px;         /* κάν’ το 280/300 αν το θες ακόμα μεγαλύτερο */
+    width:260px;
     max-width:88%;
     border-radius:14px;
     box-shadow: 0 14px 26px rgba(0,0,0,.22);
@@ -405,9 +405,16 @@
     btnNo.style.transform = "none";
   }
 
+  /* ✅ FIX: διαφορετικό start για desktop vs mobile */
   function initNo(){
     const area = actions.getBoundingClientRect();
-    placeNo(area.width * 0.53, area.height * 0.62); // ωραίο start σε mobile/desktop
+    const isMobile = window.matchMedia("(max-width: 480px)").matches;
+
+    if (isMobile) {
+      placeNo(area.width * 0.53, area.height * 0.62); // mobile (όπως το θες)
+    } else {
+      placeNo(area.width * 0.53, area.height * 0.40); // desktop (πιο πάνω)
+    }
   }
 
   function fleeFromCursor(clientX, clientY){
@@ -442,6 +449,11 @@
     }
   });
   observer.observe(env, { attributes:true, attributeFilter:['class'] });
+
+  // ✅ αν γίνει resize (desktop), να κάθεται σωστά
+  window.addEventListener('resize', () => {
+    if (env.classList.contains('show')) initNo();
+  });
 
   // Desktop chase
   actions.addEventListener('mousemove', (e) => {
